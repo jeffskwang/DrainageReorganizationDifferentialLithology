@@ -1,8 +1,11 @@
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 from matplotlib import colors, colorbar, cm
 from matplotlib.collections import LineCollection
 from landlab.components import ChannelProfiler #plot channel profile
+from landlab.io.esri_ascii import read_esri_ascii
+from landlab.io.esri_ascii import write_esri_ascii
 import math
     
 def round_half_up(n, decimals=0):
@@ -13,6 +16,27 @@ def save_lithology(lith_prefix,ids,attrs,thicknesses):
     np.save(lith_prefix+'_ids.npy',ids)
     np.save(lith_prefix+'_attrs.npy',attrs)
     np.save(lith_prefix+'_thicknesses.npy',thicknesses)
+    
+def run_steady_state(grid,landlab_flow,landlab_erode,uplift,dt,tol,filename):
+    if os.path.exists(filename):
+        read_esri_ascii(filename,grid = grid, name = 'steady_state_topographic__elevation')
+        grid.at_node['topographic__elevation'] = grid.at_node['steady_state_topographic__elevation']
+        print ('loading... ' + filename) 
+    else:
+        difference = 1.0
+        time = 0.0
+        old_eta = np.zeros_like(grid.at_node['topographic__elevation'])
+        while difference > tol: 
+            old_eta = grid.at_node['topographic__elevation'].copy()
+            landlab_flow.run_one_step() #find drainage area
+            landlab_erode.run_one_step(dt=dt) #calculate erosion rate and subtract from the topography
+            grid.at_node['topographic__elevation'][grid.core_nodes] += uplift * dt #add uplift
+            difference = np.average(np.absolute(old_eta - grid.at_node['topographic__elevation']))
+            time += dt
+        print (str(time) + ' yrs to reach steady state')
+        ss_eta = mg.add_zeros('steady_state_topographic__elevation', at = 'node')
+        grid.at_node['steady_state_topographic__elevation'] = grid.at_node['topographic__elevation']
+        write_esri_ascii(filename, grid, names = 'steady_state_topographic__elevation')
     
 def add_fault_lines(grid,field,slope,spacing,horizontal_line_boolean,vertical_line_boolean,thickness):
     if horizontal_line_boolean == True and vertical_line_boolean == True:
@@ -30,11 +54,11 @@ def add_fault_lines(grid,field,slope,spacing,horizontal_line_boolean,vertical_li
     else:
         spacing_y = spacing/np.cos(np.arctan(abs(slope)))
         if slope > 0.0:
-            lower_index = -round_half_up((grid.extent[1]*slope/spacing_y))
-            upper_index = round_half_up((grid.extent[0]/spacing_y)) + 1
+            lower_index = -int(round_half_up((grid.extent[1]*slope/spacing_y)))
+            upper_index = int(round_half_up((grid.extent[0]/spacing_y)) + 1)
         elif slope < 0.0:
             lower_index = 0
-            upper_index = round_half_up((grid.extent[0]/spacing_y)) - round_half_up((grid.extent[1]*slope/spacing_y)) + 1
+            upper_index = int(round_half_up((grid.extent[0]/spacing_y)) - round_half_up((grid.extent[1]*slope/spacing_y)) + 1)
 
         for k in range(lower_index,upper_index):   
             intercept = spacing_y * (0.5+float(k))
@@ -43,13 +67,13 @@ def add_fault_lines(grid,field,slope,spacing,horizontal_line_boolean,vertical_li
                     y = float(j) * grid.dy
                     x = (y - intercept) / slope
                     if round_half_up(x/grid.dx) >= 0.0 and round_half_up(x/grid.dx) < grid.shape[1]:
-                        grid.at_node[field].reshape(grid.shape)[j,round_half_up(x/grid.dx)] = thickness
+                        grid.at_node[field].reshape(grid.shape)[j,int(round_half_up(x/grid.dx))] = thickness
             else:
                 for i in range(0,grid.shape[1]):
                     x = float(i) * grid.dx
                     y = slope * x + intercept
                     if round_half_up(y/grid.dy) >= 0.0 and round_half_up(0.5+y/grid.dy) < grid.shape[0]:
-                        grid.at_node[field].reshape(grid.shape)[round_half_up(y/grid.dy),i] = thickness
+                        grid.at_node[field].reshape(grid.shape)[int(round_half_up(y/grid.dy)),i] = thickness
                         
 def add_folds(grid,field,slope,wavelength,amplitude,horizontal_line_boolean,vertical_line_boolean):
     if horizontal_line_boolean == True and vertical_line_boolean == True:
