@@ -16,7 +16,7 @@ def save_lithology(lith_prefix,ids,attrs,thicknesses):
     np.save(lith_prefix+'_ids.npy',ids)
     np.save(lith_prefix+'_attrs.npy',attrs)
     np.save(lith_prefix+'_thicknesses.npy',thicknesses)
-    
+
 def run_steady_state(grid,landlab_flow,landlab_erode,uplift,dt,tol,filename):
     if os.path.exists(filename):
         read_esri_ascii(filename,grid = grid, name = 'steady_state_topographic__elevation')
@@ -34,7 +34,7 @@ def run_steady_state(grid,landlab_flow,landlab_erode,uplift,dt,tol,filename):
             difference = np.average(np.absolute(old_eta - grid.at_node['topographic__elevation']))
             time += dt
         print (str(time) + ' yrs to reach steady state')
-        ss_eta = mg.add_zeros('steady_state_topographic__elevation', at = 'node')
+        ss_eta = grid.add_zeros('steady_state_topographic__elevation', at = 'node')
         grid.at_node['steady_state_topographic__elevation'] = grid.at_node['topographic__elevation']
         write_esri_ascii(filename, grid, names = 'steady_state_topographic__elevation')
     

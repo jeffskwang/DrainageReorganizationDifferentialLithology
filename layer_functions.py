@@ -7,7 +7,6 @@ from landlab.components import ChannelProfiler #plot channel profile
 from landlab.io.esri_ascii import read_esri_ascii
 from landlab.io.esri_ascii import write_esri_ascii
 import math
-import numba
     
 def round_half_up(n, decimals=0):
     multiplier = 10 ** decimals
@@ -17,9 +16,9 @@ def save_lithology(lith_prefix,ids,attrs,thicknesses):
     np.save(lith_prefix+'_ids.npy',ids)
     np.save(lith_prefix+'_attrs.npy',attrs)
     np.save(lith_prefix+'_thicknesses.npy',thicknesses)
-  
-def run_steady_state(grid,landlab_flow,landlab_erode,uplift,dt,tol,filename,mode):
-    if os.path.exists(filename) and mode == 1:
+
+def run_steady_state(grid,landlab_flow,landlab_erode,uplift,dt,tol,filename):
+    if os.path.exists(filename):
         read_esri_ascii(filename,grid = grid, name = 'steady_state_topographic__elevation')
         grid.at_node['topographic__elevation'] = grid.at_node['steady_state_topographic__elevation']
         print ('loading... ' + filename) 
